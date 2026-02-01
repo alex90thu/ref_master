@@ -125,11 +125,25 @@ class TaskProcessor:
 
         with open(out_path, "w", encoding="utf-8") as f:
             for item in results_data:
+                # 对正文进行 LaTeX 转义
                 safe_sent = self.latex_escape(item['sentence'])
+                
+                # 寻找句末标点符号（。！？.!?;）
+                punc_match = re.search(r'([。！？.!?;])$', safe_sent)
+                
                 if item['refs']:
                     cite_keys = ",".join([r['id'] for r in item['refs']])
-                    f.write(f"{safe_sent}\\cite{{{cite_keys}}} ")
-                else: f.write(f"{safe_sent} ")
+                    cite_str = f"\\cite{{{cite_keys}}}"
+                    
+                    if punc_match:
+                        # 关键修复：将引用插在标点符号前面
+                        punc = punc_match.group(1)
+                        sentence_body = safe_sent[:-1]
+                        f.write(f"{sentence_body}{cite_str}{punc} ")
+                    else:
+                        f.write(f"{safe_sent}{cite_str} ")
+                else:
+                    f.write(f"{safe_sent} ")
 
         with open(rep_path, "w", encoding="utf-8") as f:
             f.write(f"# Reverse-RAG Report\n- Tag: {tasks_db[task_id].get('tag')}\n\n## BibTeX\n```bibtex\n")
