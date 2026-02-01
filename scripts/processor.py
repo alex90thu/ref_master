@@ -16,8 +16,15 @@ class TaskProcessor:
         Entrez.email = email
         if api_key:
             Entrez.api_key = api_key
+        
+        # 从环境变量读取目录配置 [cite: 2026-01-14]
+        self.output_dir = os.getenv("OUTPUT_DIR", "output")
+        os.makedirs(self.output_dir, exist_ok=True)
+        
         self.pubmed_semaphore = asyncio.Semaphore(3) 
-        self.cache_file = "output/pubmed_cache.json"
+        
+        # 本地缓存路径迁移至输出目录
+        self.cache_file = os.path.join(self.output_dir, "pubmed_cache.json")
         self.cache = self._load_cache()
 
     def _load_cache(self):
@@ -33,7 +40,6 @@ class TaskProcessor:
             json.dump(self.cache, f, ensure_ascii=False, indent=2)
 
     def latex_escape(self, text):
-        """转义 LaTeX 特殊字符"""
         conv = {
             '&': r'\&', '%': r'\%', '$': r'\$', '#': r'\#', '_': r'\_',
             '{': r'\{', '}': r'\}', '~': r'\textasciitilde{}', '^': r'\^{}',
@@ -106,7 +112,8 @@ class TaskProcessor:
             results_data.append({"sentence": sent, "refs": refs, "keywords": kw})
 
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path, rep_path = f"output/{ts}_output.md", f"output/{ts}_report.md"
+        out_path = os.path.join(self.output_dir, f"{ts}_output.md")
+        rep_path = os.path.join(self.output_dir, f"{ts}_report.md")
 
         with open(out_path, "w", encoding="utf-8") as f:
             for item in results_data:
@@ -126,12 +133,13 @@ class TaskProcessor:
                         seen.add(r['id'])
             f.write("```\n")
 
-        # 统计
+        # 统计数据存入迁移后的路径
+        summary_csv = os.path.join(self.output_dir, "summary.csv")
         hit_rate = f"{sum(1 for x in results_data if x['refs'])}/{len(sentences)}"
         pd.DataFrame([{
             "task_id": task_id, "tag": tasks_db[task_id].get('tag'), "time": ts,
             "duration": round(time.time()-start_ts, 2), "tokens": total_tokens,
             "hit_rate": hit_rate, "refs": total_refs
-        }]).to_csv("output/summary.csv", mode='a', index=False, header=not os.path.exists("output/summary.csv"))
+        }]).to_csv(summary_csv, mode='a', index=False, header=not os.path.exists(summary_csv))
 
         tasks_db[task_id].update({"status": "completed", "progress": "100%", "result_files": [out_path, rep_path]})

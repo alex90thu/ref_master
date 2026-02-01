@@ -6,18 +6,22 @@ import time
 import hashlib
 import zipfile
 from io import BytesIO
+from dotenv import load_dotenv
+
+# 加载环境变量 [cite: 2026-01-14]
+load_dotenv()
+OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
 
 st.set_page_config(page_title="Reverse-RAG Manager", page_icon="🧬", layout="wide")
 API_URL = "http://127.0.0.1:8020"
 
-# 高对比度配色
 COLOR_MAP = {"blue": "#E3F2FD", "green": "#F1F8E9", "orange": "#FFF3E0", "red": "#FCE4EC", "purple": "#F3E5F5", "teal": "#E0F2F1"}
 
 def get_tag_style(tag):
     colors = list(COLOR_MAP.values())
     return colors[int(hashlib.md5(tag.encode()).hexdigest(), 16) % len(colors)]
 
-st.title("👍 你说得对 Here are your refs")
+st.title("🧬 Reverse-RAG 任务管理系统")
 
 tab1, tab2 = st.tabs(["🚀 提交新任务", "📋 任务管理大厅"])
 
@@ -37,16 +41,9 @@ with tab1:
 
 # --- Tab 2: 列表管理 ---
 with tab2:
-    with st.expander("📝 Overleaf 配置模板 (点击右上角图标复制)", expanded=False):
-        st.markdown("""
-        **使用步骤：**
-        1. 编译器选 **XeLaTeX**。
-        2. 新建 **refs.bib**，粘贴 Report 中的 BibTeX 内容。
-        3. 复制下方代码到 **main.tex**。
-        """)
+    with st.expander("📝 Overleaf 配置模板", expanded=False):
         try:
             with open("main.tex", "r", encoding="utf-8") as f:
-                # 使用 st.code 渲染，它自带官方的复制按钮
                 st.code(f.read(), language="latex")
         except: st.warning("根目录下未找到 main.tex")
 
@@ -55,6 +52,7 @@ with tab2:
     except: all_tasks = {}
 
     if all_tasks:
+        summary_csv = os.path.join(OUTPUT_DIR, "summary.csv")
         for tid, info in sorted(all_tasks.items(), key=lambda x: x[1]['create_time'], reverse=True):
             tag = info.get("tag", "Default")
             bg_color = get_tag_style(tag)
@@ -72,7 +70,6 @@ with tab2:
                     
                     with c1:
                         if info['status'] == 'completed' and info['result_files']:
-                            # 创建内存中的 ZIP 文件
                             zip_buffer = BytesIO()
                             with zipfile.ZipFile(zip_buffer, "w") as zf:
                                 for f_path in info['result_files']:
@@ -87,12 +84,12 @@ with tab2:
                                 key=f"dl_zip_{tid}"
                             )
                         else:
-                            st.write("⏳ 任务排队中或正在处理...")
+                            st.write("⏳ 正在处理...")
 
                     with c2:
-                        if info['status'] == 'completed':
+                        if info['status'] == 'completed' and os.path.exists(summary_csv):
                             try:
-                                sdf = pd.read_csv("output/summary.csv")
+                                sdf = pd.read_csv(summary_csv)
                                 task_s = sdf[sdf['task_id'] == tid]
                                 if not task_s.empty:
                                     st.write(f"📈 命中率: {task_s.iloc[0]['hit_rate']}")
