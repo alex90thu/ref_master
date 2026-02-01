@@ -1,0 +1,15 @@
+name: reverse_rag
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    - fastapi
+    - uvicorn
+    - httpx
+    - biopython
+    - python-dotenv
+    - streamlit
+    - requests

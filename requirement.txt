@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+httpx
+biopython
+python-dotenv
+streamlit
+requests
