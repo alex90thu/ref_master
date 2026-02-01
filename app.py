@@ -10,7 +10,12 @@ from dotenv import load_dotenv
 
 # 加载环境变量 [cite: 2026-01-14]
 load_dotenv()
-OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
+# 优先取 .env，取不到再用默认，确保和 processor.py 一致
+OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/data/guozehua/ref_master/output")
+
+# 在页面初始化时检查一下
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 st.set_page_config(page_title="Reverse-RAG Manager", page_icon="🧬", layout="wide")
 API_URL = "http://127.0.0.1:8020"

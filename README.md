@@ -59,6 +59,10 @@ bash ./run.sh
 ### 环境变量
 复制 [/.env.example](/.env.example) 为 [/.env](/.env) 并按需修改：
 ```
+# 路径配置（请确保运行用户对这些目录有读写权限）
+OUTPUT_DIR="/mnt/data/rag_project/output"
+LOG_DIR="/mnt/data/rag_project/logs"
+
 OPENAI_API_BASE="http://127.0.0.1:11434/v1"
 OPENAI_API_KEY=""
 PUBMED_EMAIL="your_email@domain.com"
@@ -124,6 +128,10 @@ bash ./run.sh
 ### Environment Variables
 Copy [/.env.example](/.env.example) to [/.env](/.env) and adjust as needed:
 ```
+# Path settings (ensure the runtime user has read/write permission)
+OUTPUT_DIR="/mnt/data/rag_project/output"
+LOG_DIR="/mnt/data/rag_project/logs"
+
 OPENAI_API_BASE="http://127.0.0.1:11434/v1"
 OPENAI_API_KEY=""
 PUBMED_EMAIL="your_email@domain.com"

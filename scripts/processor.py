@@ -17,27 +17,35 @@ class TaskProcessor:
         if api_key:
             Entrez.api_key = api_key
         
-        # 从环境变量读取目录配置 [cite: 2026-01-14]
-        self.output_dir = os.getenv("OUTPUT_DIR", "output")
+        # 核心修复：直接读取 .env 绝对路径，不依赖相对路径
+        self.output_dir = os.getenv("OUTPUT_DIR", "/data/guozehua/ref_master/output")
         os.makedirs(self.output_dir, exist_ok=True)
         
         self.pubmed_semaphore = asyncio.Semaphore(3) 
         
-        # 本地缓存路径迁移至输出目录
+        # 缓存文件强制锁定在绝对路径下的 output 目录
         self.cache_file = os.path.join(self.output_dir, "pubmed_cache.json")
         self.cache = self._load_cache()
+        print(f"DEBUG: Cache file path is {self.cache_file}")
 
     def _load_cache(self):
+        # 增加容错检查
         if os.path.exists(self.cache_file):
             try:
                 with open(self.cache_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except: return {}
+                    data = json.load(f)
+                    return data if isinstance(data, dict) else {}
+            except Exception as e:
+                print(f"Cache load error: {e}")
+                return {}
         return {}
 
     def _save_cache(self):
-        with open(self.cache_file, 'w', encoding='utf-8') as f:
-            json.dump(self.cache, f, ensure_ascii=False, indent=2)
+        try:
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(self.cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Cache save error: {e}")
 
     def latex_escape(self, text):
         conv = {
