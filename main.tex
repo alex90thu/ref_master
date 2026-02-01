@@ -1,0 +1,54 @@
+% --- Reverse-RAG 专用面上项目 LaTeX 模版 ---
+% 编译引擎建议：XeLaTeX
+% 参考文献处理：BibTeX
+
+\documentclass[12pt, a4paper]{article}
+
+% --- 1. 中文支持 ---
+\usepackage[UTF8]{ctex} 
+
+% --- 2. 引用与文献格式 ---
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{doi} 
+\usepackage{hyperref} 
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+% --- 3. 页面布局 ---
+\usepackage[margin=2.5cm]{geometry}
+\renewcommand{\baselinestretch}{1.5} % 1.5 倍行距
+
+% --- 4. 常用宏包 ---
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+
+% --- 5. 文档元数据 ---
+\title{2026 年度国家自然科学基金面上项目：\\ \textbf{基于 WORF-SEQ 的单倍型捕获测序技术开发}}
+\author{郭泽华 \quad 博士/助理研究员}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% ==================================================================
+% 使用说明：
+% 1. 在 Overleaf [Menu] -> [Compiler] 中选择 [XeLaTeX]
+% 2. 在 Overleaf 项目中新建 [refs.bib]
+% 3. 将本系统生成的 [Report] 中的 BibTeX 源码粘贴进 [refs.bib]
+% 4. 将本系统生成的 [Output] 正文内容粘贴在下方 \section 之后
+% ==================================================================
+
+\section{立项依据与科学问题}
+
+% --- [在此粘贴 Output.md 的内容] ---
+
+% --- [内容结束] ---
+
+\newpage
+\addcontentsline{toc}{section}{参考文献}
+% 使用 unsrtnat 样式以支持 BibTeX 中的 DOI 字段显示
+\bibliographystyle{unsrtnat} 
+\bibliography{refs}
+
+\end{document}

@@ -3,114 +3,103 @@ import requests
 import pandas as pd
 import os
 import time
-import re
+import hashlib
+import zipfile
+from io import BytesIO
 
-# --- 配置区 ---
 st.set_page_config(page_title="Reverse-RAG Manager", page_icon="🧬", layout="wide")
-
 API_URL = "http://127.0.0.1:8020"
-OUTPUT_DIR = "output"
 
-# --- 样式逻辑 ---
-st.markdown("""
-    <style>
-    .status-done { color: #28a745; font-weight: bold; }
-    .status-running { color: #007bff; font-weight: bold; }
-    .status-pending { color: #ffc107; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
+# 高对比度配色
+COLOR_MAP = {"blue": "#E3F2FD", "green": "#F1F8E9", "orange": "#FFF3E0", "red": "#FCE4EC", "purple": "#F3E5F5", "teal": "#E0F2F1"}
 
-# --- 主界面 ---
-st.title("🧬 Reverse-RAG 任务管理系统")
+def get_tag_style(tag):
+    colors = list(COLOR_MAP.values())
+    return colors[int(hashlib.md5(tag.encode()).hexdigest(), 16) % len(colors)]
+
+st.title("👍 你说得对 Here are your refs")
 
 tab1, tab2 = st.tabs(["🚀 提交新任务", "📋 任务管理大厅"])
 
-# --- Tab 1: 提交任务 ---
+# --- Tab 1: 提交 ---
 with tab1:
     with st.form("task_submission"):
-        content = st.text_area("输入待处理文本：", height=300, placeholder="在此粘贴需要溯源的学术段落...")
-        if st.form_submit_button("提交后台排队"):
+        task_tag = st.text_input("任务标签 (Tag)：", value="Default")
+        content = st.text_area("待处理文本：", height=300)
+        if st.form_submit_button("部署后台队列"):
             if content.strip():
                 try:
-                    r = requests.post(f"{API_URL}/submit-task", json={"content": content})
-                    st.success(f"任务已提交！ID: {r.json()['task_id']}")
-                    time.sleep(1)
+                    requests.post(f"{API_URL}/submit-task", json={"content": content, "tag": task_tag})
+                    st.success(f"任务 [{task_tag}] 提交成功！")
+                    time.sleep(0.5)
                     st.rerun()
-                except Exception as e:
-                    st.error(f"连接失败: {e}")
-            else:
-                st.warning("内容不能为空")
+                except Exception as e: st.error(f"连接失败: {e}")
 
-# --- Tab 2: 列表式管理 ---
+# --- Tab 2: 列表管理 ---
 with tab2:
-    st.subheader("所有任务状态")
-    
+    with st.expander("📝 Overleaf 配置模板 (点击右上角图标复制)", expanded=False):
+        st.markdown("""
+        **使用步骤：**
+        1. 编译器选 **XeLaTeX**。
+        2. 新建 **refs.bib**，粘贴 Report 中的 BibTeX 内容。
+        3. 复制下方代码到 **main.tex**。
+        """)
+        try:
+            with open("main.tex", "r", encoding="utf-8") as f:
+                # 使用 st.code 渲染，它自带官方的复制按钮
+                st.code(f.read(), language="latex")
+        except: st.warning("根目录下未找到 main.tex")
+
     try:
-        # 从后端获取所有任务数据
-        # 注意：这里假设后端 main.py 已经增加了一个 GET /tasks 接口，如果没有，我们先尝试获取全局列表
-        response = requests.get(f"{API_URL}/tasks") 
-        if response.status_code == 200:
-            all_tasks = response.json()
-        else:
-            all_tasks = {}
-    except:
-        st.error("无法获取任务列表，请检查后端是否运行。")
-        all_tasks = {}
+        all_tasks = requests.get(f"{API_URL}/tasks").json()
+    except: all_tasks = {}
 
-    if not all_tasks:
-        st.info("暂无活跃任务。")
-    else:
-        # 将字典转换为 DataFrame 方便展示，倒序排列（最新在上）
-        task_list = []
-        for tid, info in all_tasks.items():
-            task_list.append({
-                "任务ID": tid,
-                "创建时间": info.get("create_time", "-"),
-                "当前状态": info.get("status", "unknown"),
-                "进度": info.get("progress", "0%"),
-                "文件": info.get("result_files", [])
-            })
-        
-        df_tasks = pd.DataFrame(task_list).iloc[::-1]
-
-        # 遍历展示
-        for index, row in df_tasks.iterrows():
-            with st.expander(f"ID: {row['任务ID']} | 状态: {row['当前状态']} | 时间: {row['创建时间']}", expanded=(row['当前状态'] == 'running')):
-                c1, c2, c3 = st.columns([1, 2, 2])
+    if all_tasks:
+        for tid, info in sorted(all_tasks.items(), key=lambda x: x[1]['create_time'], reverse=True):
+            tag = info.get("tag", "Default")
+            bg_color = get_tag_style(tag)
+            
+            with st.container():
+                st.markdown(f"""
+                    <div style="background-color:{bg_color}; padding:12px; border-radius:10px; border-left:8px solid #555; margin-bottom:5px;">
+                        <h4 style="margin:0;">🏷️ {tag} | <small>ID: {tid}</small></h4>
+                        <p style="margin:0; font-size:0.9rem;">状态: <b>{info['status']}</b> | 进度: {info['progress']} | 时间: {info['create_time']}</p>
+                    </div>
+                """, unsafe_allow_html=True)
                 
-                with c1:
-                    st.write(f"**进度**: {row['进度']}")
-                
-                with c2:
-                    if row['当前状态'] == 'completed' and row['文件']:
-                        for f_path in row['文件']:
-                            if os.path.exists(f_path):
-                                with open(f_path, "rb") as f:
-                                    label = "📥 下载 Output" if "output" in f_path else "📊 下载 Report"
-                                    st.download_button(label, f, file_name=os.path.basename(f_path), key=f"{f_path}_{row['任务ID']}")
-                    elif "failed" in row['当前状态']:
-                        st.error("任务出错，请检查日志")
-                    else:
-                        st.write("⏳ 正在排队或处理中...")
+                with st.expander("任务操作与统计"):
+                    c1, c2 = st.columns([1, 1])
+                    
+                    with c1:
+                        if info['status'] == 'completed' and info['result_files']:
+                            # 创建内存中的 ZIP 文件
+                            zip_buffer = BytesIO()
+                            with zipfile.ZipFile(zip_buffer, "w") as zf:
+                                for f_path in info['result_files']:
+                                    if os.path.exists(f_path):
+                                        zf.write(f_path, os.path.basename(f_path))
+                            
+                            st.download_button(
+                                label="📦 一键下载结果压缩包 (ZIP)",
+                                data=zip_buffer.getvalue(),
+                                file_name=f"RAG_{tag}_{tid}.zip",
+                                mime="application/zip",
+                                key=f"dl_zip_{tid}"
+                            )
+                        else:
+                            st.write("⏳ 任务排队中或正在处理...")
 
-                with c3:
-                    if row['当前状态'] == 'completed':
-                        # 快速预览摘要
-                        try:
-                            # 假设 summary.csv 里有对应记录
-                            summary_df = pd.read_csv(f"{OUTPUT_DIR}/summary.csv")
-                            task_summary = summary_df[summary_df['task_id'] == row['任务ID']]
-                            if not task_summary.empty:
-                                st.write(f"📈 命中率: {task_summary.iloc[0]['hit_rate']}")
-                                st.write(f"引用数: {task_summary.iloc[0]['refs']}")
-                        except:
-                            pass
+                    with c2:
+                        if info['status'] == 'completed':
+                            try:
+                                sdf = pd.read_csv("output/summary.csv")
+                                task_s = sdf[sdf['task_id'] == tid]
+                                if not task_s.empty:
+                                    st.write(f"📈 命中率: {task_s.iloc[0]['hit_rate']}")
+                                    st.write(f"📚 引用总数: {task_s.iloc[0]['refs']}")
+                            except: pass
+            st.divider()
 
-    if st.button("🔄 刷新列表"):
-        st.rerun()
-
-# 自动刷新逻辑
-running_exists = any(t.get("status") in ["pending", "running"] for t in all_tasks.values())
-if running_exists:
+if any(t.get("status") in ["pending", "running"] for t in all_tasks.values()):
     time.sleep(5)
     st.rerun()
